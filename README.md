@@ -40,3 +40,21 @@ dir.create("scripts")
 dir.create("output")
 
 ```
+
+# Script: 01_setup.R
+# Purpose: Check and install required packages
+
+required_packages <- c("tidyverse", "ggrepel")
+
+new_packages <- required_packages[!(required_packages %in% installed_packages)]
+if(length(new_packages)) install.packages(new_packages)
+
+message("Environment setup complete.")
+
+
+
+
+
+
+
+
