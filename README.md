@@ -26,9 +26,16 @@ Please complete the following installations before starting Module 1:
 * [ ] Install **Git**: [git-scm.com](https://git-scm.com/)
 * [ ] Create a **GitHub** account: [github.com](https://github.com/)
 
+Installing R & RStudio should be relatively straightforward, although it can be a little slow depending on your machine.  RStudio is our graphical interface which runs R, and R is a programming language and software environment designed for statistical computing, data analysis, and graphical visualisation. It is really commonly used in Bioinformatics, similar to Python. In my opinion, R is better for Viz and standards statistics, not as good for bigger scale machine learning projects, but overall much more forgiving for someone first experiencing coding.  
+
+
+GitHub is a cloud-based platform that hosts software development projects and allows us as researchers or code developers to store, manage, track, and share code using Git, a distributed version control system. Think of it like a private or public Sharepoint/Onedrive where we can share our code documents with lab/team members or the wider public. In R, we often install and use "Packages" of code - GitHub is where one might host a package, or something as simple as a single chunk of code that we are working on. "Git" specifically is a program we use to send/pull our files to/from GitHub.  
+
 ---
 
 ## Module 1: Project Setup & Version Control
+
+In this module, we will set up a structured computational environment and establish version control using Git and GitHub. Organizing your code, data, and outputs into standard subdirectories from the outset ensures your project remains structured, while linking your RProject to GitHub ensures all updates are tracked, backed up, and fully reproducible. We want our code to work time and time again on our machine, AND to be useable in the exact same way on someone else's computer (a colleague, a reviewer, a client). Similar to lab work, we want a strict lab notebook with a very specific layout and set of instructions, and for it to actually be readable for others! Think of recipe books - they usually follow the same structure - we do not want to be on the final step of baking our cake to realize we are missing a vital ingredient, coding follows the same logic.
 
 ### Step 1: Create local directory structure
 Open **RStudio**, create a new R Project linked to your cloned GitHub repository, and run the following in your Console:
@@ -41,17 +48,23 @@ dir.create("output")
 
 ```
 
+Now, when someone else opens our script, they will know how our data/input/output should be structured.
+
 # Script: 01_setup.R
 # Purpose: Check and install required packages
 
-required_packages <- c("tidyverse", "ggrepel")
+When we start using RStudio, we will need to install packages, using `install.packages("package_name")`. We then switch on the package, using `library(package_name)`. Note the use of quotations for install but not for library. The next time we open up RStudio, we do not need to reinstall the package, but we do need to switch it on, with the `library()` function.  
+
+The below code gives R the list of packages we need and installs them if they are missing. 
+
+```r
+required_packages <- c("dplyr", "ggplot2", "tidyverse", "ggrepel")
 
 new_packages <- required_packages[!(required_packages %in% installed_packages)]
 if(length(new_packages)) install.packages(new_packages)
 
-message("Environment setup complete.")
 
-
+```
 
 
 
