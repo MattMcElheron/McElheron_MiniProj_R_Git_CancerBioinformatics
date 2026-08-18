@@ -4,16 +4,27 @@ Now that we have successfully built a complete bioinformatic pipeline from raw d
 
 Up until this point, we have compared **Tumour vs. Normal** tissue within a single cancer type (Breast Cancer, TCGA-BRCA). For your independent assignment, your objective is to investigate the transcriptomic differences between **two different types of cancer**. You will query a new TCGA cohort, isolate the tumour samples from both cohorts, and perform a differential expression analysis comparing **BRCA Tumours vs. [Your Chosen Cancer] Tumours**. More specifically, you will then investigate if there are differences in hypoxia gene signalling between the cancer types. 
 
-This is a very common exploratory analysis in cancer biology, often used to identify tissue-specific oncogenic drivers or potential pan-cancer therapeutic targets.
+This is a very common exploratory analysis in cancer biology, often used to identify tissue-specific oncogenic drivers or potential pan-cancer therapeutic targets.  
 
 ### The Task
 
 1. **Select a New Cohort:** Choose a new TCGA project to compare against our existing BRCA dataset. Good options include Lung Adenocarcinoma (`TCGA-LUAD`), Colon Adenocarcinoma (`TCGA-COAD`), or Prostate Adenocarcinoma (`TCGA-PRAD`).
-2. **Data Acquisition:** Write a script to query and download RNA-Seq data for your new cohort. 
+2. **Data Acquisition:** Write a script to query and download RNA-Seq data for your new cohort. Sample number here doesn't matter too much, the script is what we are interested in here.
 3. **Data Wrangling:** Filter both your BRCA dataset and your new dataset to retain **only** the "Primary Tumor" samples (drop the "Solid Tissue Normal" samples).
 4. **Merge Datasets:** Combine the two tumour count matrices into a single matrix, and combine their metadata into a single table.
 5. **Analysis & Visualisation:** Run the combined dataset through your `edgeR`/`limma` pipeline. Generate a PCA plot to see if the two cancer types cluster independently, and a Volcano plot highlighting the top differentially expressed genes between the two malignancies.
-6. **Targeted Gene Analysis:** Pull out the transcription levels of genes from the hypoxia hallmark gene set, then compare levels between your groups.
+6. **Targeted Gene Analysis:** Pull out the transcription levels of genes from the hypoxia hallmark gene set, then compare levels between your groups.  
+
+---  
+
+### Preparing a Bioinformatics Report  
+
+When writing up your findings for this assignment, I recommend adopting the standard format of a scientific research article. Your report should guide the reader logically from raw data retrieval to biological interpretation. Below is a suggested structure for your submission:
+
+1. **Introduction:** Briefly introduce the two selected cancer types and outline the biological rationale for comparing their transcriptomes. Introduce hypoxia signalling as a critical microenvironmental factor influencing tumour progression, therapy resistance, and metabolic reprogramming.
+2. **Methods:** Clearly document your computational workflow. Specify the TCGA cohorts queried, the filtering and normalisation steps applied (such as TMM normalisation and voom transformation), and the statistical models used for differential expression testing (limma).
+3. **Results:** Present your findings with high-resolution visualisations. Make sure and create caption your figure with legends.
+4. **Discussion:** Interpret your results in a broader biological context, including potential limitaitons to your work and future steps.  
 
 ---
 
@@ -51,5 +62,23 @@ In real-world bioinformatics, comparing datasets generated from different distin
 
 
 ---
+
+---
+
+## Assignment Final Checklist
+
+To complete this mini-project assignment, you will need to complete and document the following (preferably on your GitHub):
+
+- [ ] **Choose a New Cohort:** Select an additional TCGA project to compare against our existing BRCA dataset (e.g., TCGA-LUAD, TCGA-COAD, or TCGA-PRAD).
+- [ ] **Data Acquisition Script:** Write or adapt an R script to query and download RNA-Seq quantification files for your chosen cohort via TCGAbiolinks.
+- [ ] **Filter Normal Samples:** Filter both your BRCA dataset and your new dataset to retain only "Primary Tumor" samples, dropping all "Solid Tissue Normal" samples.
+- [ ] **Merge Datasets:** Combine the two tumour count matrices using intersect() to match genes correctly, and merge their sample metadata tables.
+- [ ] **Differential Expression & PCA:** Run your combined data through the edgeR/limma pipeline, generate a PCA plot to inspect whether the two cancer types cluster independently, construct a Volcano plot, and investigate your gene set of interest.
+- [ ] **Final GitHub Deliverable:** Ensure your public repository contains the updated script(s), saved analytical output tables, rendered .png figures, and a brief note in your README.md discussion what you have found.  
+
+---  
+
+
+
 
 
