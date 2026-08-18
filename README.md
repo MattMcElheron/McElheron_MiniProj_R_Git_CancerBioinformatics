@@ -27,3 +27,16 @@ Please complete the following installations before starting Module 1:
 * [ ] Create a **GitHub** account: [github.com](https://github.com/)
 
 ---
+
+## Module 1: Project Setup & Version Control
+
+### Step 1: Create local directory structure
+Open **RStudio**, create a new R Project linked to your cloned GitHub repository, and run the following in your Console:
+
+```r
+# Create standard project folders
+dir.create("data")
+dir.create("scripts")
+dir.create("output")
+
+```
