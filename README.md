@@ -2,8 +2,6 @@
 
 [![Cohort](https://img.shields.io/badge/Cohort-TCGA-blue.svg)](https://portal.gdc.cancer.gov/)
 [![Cohort](https://img.shields.io/badge/Cohort-TCGA%20(cBioPortal)-008080.svg)](https://www.cbioportal.org/)
-[![Cohort](https://img.shields.io/badge/Cohort-TCGA--BRCA-darkblue.svg)](https://portal.gdc.cancer.gov/projects/TCGA-BRCA)
-
 
 Welcome to your introductory dry-lab mini-project. This hands-on tutorial is designed to build foundational skills in **computational biology**, **version control**, and **data science using R**, designed for someone with a wet lab background interested in adding some computational skills to their week-to-week as a researcher.  
 
@@ -11,9 +9,10 @@ Welcome to your introductory dry-lab mini-project. This hands-on tutorial is des
 ### Learning Objectives
 By completing this project, you will learn how to:
 1. Set up a reproducible project structure using **RStudio** and **Git/GitHub**.
-2. Perform basic data wrangling, quality control, and log-transformation.
-3. Conduct hypothesis testing ($t$-tests), multiple testing correction (FDR), and dimensionality reduction (**PCA**).
-4. Generate publication-ready visualisations (**PCA plots** & **Volcano plots**) using `ggplot2`.
+2. Query and download real cancer transcriptomic data directly from the GDC portal.
+3. Perform data filtering, TMM normalisation, and variance-stabilising transformations (`voom`).
+4. Conduct hypothesis testing (`limma`), multiple testing correction (FDR), and dimensionality reduction (**PCA**).
+5. Generate publication-ready visualisations (**PCA plots** & **Volcano plots**) using `ggplot2`.
 
 ---  
 
@@ -26,7 +25,7 @@ Please complete the following installations before starting Module 1:
 * [ ] Install **Git**: [git-scm.com](https://git-scm.com/)
 * [ ] Create a **GitHub** account: [github.com](https://github.com/)
 
-Installing R & RStudio should be relatively straightforward, although it can be a little slow depending on your machine.  RStudio is our graphical interface which runs R, and R is a programming language and software environment designed for statistical computing, data analysis, and graphical visualisation. It is really commonly used in Bioinformatics, similar to Python. In my opinion, R is better for Viz and standards statistics, not as good for bigger scale machine learning projects, but overall much more forgiving for someone first experiencing coding.  
+Installing R & RStudio should be relatively straightforward, although it can be a little slow depending on your machine. RStudio is our graphical interface which runs R, and R is a programming language and software environment designed for statistical computing, data analysis, and graphical visualisation. It is really commonly used in Bioinformatics, similar to Python. In my opinion, R is better for Viz and standard statistics, not as good for bigger scale machine learning projects, but overall much more forgiving for someone first experiencing coding.  
 
 
 GitHub is a cloud-based platform that hosts software development projects and allows us as researchers or code developers to store, manage, track, and share code using Git, a distributed version control system. Think of it like a private or public Sharepoint/Onedrive where we can share our code documents with lab/team members or the wider public. In R, we often install and use "Packages" of code - GitHub is where one might host a package, or something as simple as a single chunk of code that we are working on. "Git" specifically is a program we use to send/pull our files to/from GitHub.  
@@ -42,7 +41,7 @@ If you are completely new to programming, I strongly recommend completing the fr
 
 ## Module 1: Project Setup & Version Control
 
-In this module, we will set up a structured computational environment and establish version control using Git and GitHub. Organizing your code, data, and outputs into standard subdirectories from the outset ensures your project remains structured, while linking your RProject to GitHub ensures all updates are tracked, backed up, and fully reproducible. We want our code to work time and time again on our machine, AND to be useable in the exact same way on someone else's computer (a colleague, a reviewer, a client). Similar to lab work, we want a strict lab notebook with a very specific layout and set of instructions, and for it to actually be readable for others! Think of recipe books - they usually follow the same structure - we do not want to be on the final step of baking our cake to realize we are missing a vital ingredient, coding follows the same logic.
+In this module, we will set up a structured computational environment and establish version control using Git and GitHub. Organising your code, data, and outputs into standard subdirectories from the outset ensures your project remains structured, while linking your RProject to GitHub ensures all updates are tracked, backed up, and fully reproducible. We want our code to work time and time again on our machine, AND to be useable in the exact same way on someone else's computer (a colleague, a reviewer, a client). Similar to lab work, we want a strict lab notebook with a very specific layout and set of instructions, and for it to actually be readable for others! Think of recipe books, they usually follow the same structure, we do not want to be on the final step of baking our cake to realise we are missing a vital ingredient, coding follows the same logic.
 
 ### Step 1: Create local directory structure
 Open **RStudio**, create a new R Project linked to your cloned GitHub repository, and run the following in your Console:
@@ -52,229 +51,378 @@ Open **RStudio**, create a new R Project linked to your cloned GitHub repository
 dir.create("data")
 dir.create("scripts")
 dir.create("output")
-
 ```
 
 Now, when someone else opens our script, they will know how our data/input/output should be structured.
 
-# Task 1: Write a Script  
+### Task 1: Write a Setup Script  
 
-Create a new file in `scripts/srcsrc01_setup.R`. This file will install and load any libraries we need.
-
-
-### Script: src01_setup.R
-## Purpose: Check and install required packages
-
-When we start using RStudio, we will need to install packages, using `install.packages("package_name")`. We then switch on the package, using `library(package_name)`. Note the use of quotations for install but not for library. The next time we open up RStudio, we do not need to reinstall the package, but we do need to switch it on, with the `library()` function.  
-
-The below code gives R the list of packages we need and installs them if they are missing. 
+Create a new file in `scripts/src01_setup.R`. This file will install and load any libraries we need across CRAN and Bioconductor.
 
 ```r
-required_packages <- c("dplyr", "ggplot2", "tidyverse", "ggrepel")
+# ==============================================================================
+# Script: scripts/src01_setup.R
+# Purpose: Configure dependencies and environment for TCGA transcriptomic workflow
+# ==============================================================================
 
-new_packages <- required_packages[!(required_packages %in% installed_packages)]
-if(length(new_packages)) install.packages(new_packages)
+# We first verify if BiocManager is available on our machine; if not, we install it 
+# so we can seamlessly manage packages hosted on Bioconductor.
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
 
-message("Packages installed. Environment setup complete.")
+# We list the standard CRAN packages required for data manipulation and visualisation.
+cran_packages <- c("dplyr", "tidyr", "ggplot2", "ggrepel")
 
+# We list the specialised Bioconductor packages needed for fetching GDC data, 
+# managing expression matrices, and running differential expression.
+bioc_packages <- c("TCGAbiolinks", "SummarizedExperiment", "limma", "edgeR")
+
+# We identify which CRAN packages are currently missing from our library.
+new_cran <- cran_packages[!(cran_packages %in% installed.packages()[, "Package"])]
+
+# We install missing CRAN packages if needed.
+if (length(new_cran) > 0) {
+  install.packages(new_cran)
+}
+
+# We identify which Bioconductor packages are missing from our library.
+new_bioc <- bioc_packages[!(bioc_packages %in% installed.packages()[, "Package"])]
+
+# We install missing Bioconductor packages if needed.
+if (length(new_bioc) > 0) {
+  BiocManager::install(new_bioc)
+}
+
+message("Environment successfully setup! All dependencies are installed.")
 ```  
-
 
 ### Git Checkpoint:  
 Stage your files in RStudio's Git tab, write a commit message ("Setup directory structure and setup script"), and push to GitHub.  
 
-
 ---
 
-## Module 2: Preprocessing & Quality Control
+## Module 2: Data Acquisition & Preprocessing
 
-Create `scripts/src02_preprocessing.R` to download, filter, and normalize real breast cancer expression data from TCGA:
+Create `scripts/src02_preprocessing.R` to download real cancer RNA-Seq expression data from TCGA via `TCGAbiolinks`, extract relevant metadata, apply low-count filtering, and normalise expression values using TMM and `voom`:
 
 ```r
-# Script: src02_preprocessing.R
-# Purpose: Fetch real TCGA-BRCA transcriptomic data, extract metadata, and log2-transform counts
+# ==============================================================================
+# Script: scripts/src02_preprocessing.R
+# Purpose: Fetch real TCGA RNA-Seq data, process counts, filter, and normalise
+# ==============================================================================
 
-# 1. Load required libraries
-if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-if (!requireNamespace("TCGAbiolinks", quietly = TRUE)) BiocManager::install("TCGAbiolinks")
-if (!requireNamespace("SummarizedExperiment", quietly = TRUE)) BiocManager::install("SummarizedExperiment")
+# We load our project libraries quietly to keep our console clean.
+suppressPackageStartupMessages({
+  library(TCGAbiolinks)
+  library(SummarizedExperiment)
+  library(dplyr)
+  library(tidyr)
+  library(edgeR)
+  library(limma)
+})
 
-library(TCGAbiolinks)
-library(SummarizedExperiment)
-library(tidyverse)
+# ------------------------------------------------------------------------------
+# 1. Configuration & Cohort Definition
+# ------------------------------------------------------------------------------
 
-message("Downloading TCGA-BRCA data from GDC portal...")
+# We define the project code and clean label here so we can easily swap cohort 
+# identifiers (e.g., "TCGA-BRCA", "TCGA-LUAD", "TCGA-COAD") without rewriting code.
+cancer_project    <- "TCGA-BRCA"
+cancer_label      <- "Breast Cancer (BRCA)"
+n_samples_per_grp <- 20 # Number of samples per condition to keep download sizes fast
 
-# 2. Query GDC for TCGA-BRCA RNA-seq gene expression (STAR - Counts)
-query <- GDCquery(
-  project = "TCGA-BRCA",
+message(sprintf("Initiating data query for project: %s", cancer_project))
+
+# ------------------------------------------------------------------------------
+# 2. Query GDC Portal & Download Data
+# ------------------------------------------------------------------------------
+
+# We query the Genomic Data Commons (GDC) portal for primary solid tumour 
+# and solid tissue normal gene expression quantification files.
+query_tcga <- GDCquery(
+  project = cancer_project,
   data.category = "Transcriptome Profiling",
   data.type = "Gene Expression Quantification",
-  workflow.type = "STAR - Counts"
+  workflow.type = "STAR - Counts",
+  sample.type = c("Primary Tumor", "Solid Tissue Normal")
 )
 
-# Download a subset of samples (20 Primary Tumour, 20 Solid Tissue Normal) to keep runtime fast
-samples_normal <- GDCquery_clinic(project = "TCGA-BRCA", type = "clinical")
-# Download data files locally
-GDCdownload(query, files.per.chunk = 10)
-brca_se <- GDCprepare(query)
+# We extract the metadata table from our query to subset a balanced sub-cohort.
+results_df <- getResults(query_tcga)
 
-# 3. Extract sample metadata & define conditions
-coldata <- as.data.frame(colData(brca_se)) %>%
-  select(barcode, sample_type) %>%
-  filter(sample_type %in% c("Primary Tumor", "Solid Tissue Normal")) %>%
-  mutate(condition = factor(ifelse(sample_type == "Primary Tumor", "Tumour", "Normal"), 
-                            levels = c("Normal", "Tumour")))
+# We select sample barcodes for our specified sample size per group.
+tumor_barcodes <- results_df$cases[results_df$sample_type == "Primary Tumor"][1:n_samples_per_grp]
+normal_barcodes <- results_df$cases[results_df$sample_type == "Solid Tissue Normal"][1:n_samples_per_grp]
 
-# Select a balanced subset: 20 Normal and 20 Tumour samples
-set.seed(42)
-selected_samples <- coldata %>%
-  group_by(condition) %>%
-  slice_sample(n = 20) %>%
-  ungroup()
+# We build a focused query targeting only our selected sample barcodes.
+query_sub <- GDCquery(
+  project = cancer_project,
+  data.category = "Transcriptome Profiling",
+  data.type = "Gene Expression Quantification",
+  workflow.type = "STAR - Counts",
+  barcode = c(tumor_barcodes, normal_barcodes)
+)
 
-# 4. Filter count matrix to selected samples & top variable genes
-raw_counts <- assay(brca_se, "unstranded")[, selected_samples$barcode]
+# We download the file payload directly via the GDC API.
+GDCdownload(query_sub, method = "api", files.per.chunk = 10)
 
-# Clean gene symbols from row data
-gene_info <- as.data.frame(rowData(brca_se))
-rownames(raw_counts) <- gene_info$gene_name
+# We parse the downloaded files into a SummarizedExperiment container.
+tcga_se <- GDCprepare(query_sub)
 
-# Filter out unmapped/empty gene symbols and low-count genes
-raw_counts <- raw_counts[!is.na(rownames(raw_counts)) & rownames(raw_counts) != "", ]
-raw_counts <- raw_counts[rowSums(raw_counts) > 50, ]
+# ------------------------------------------------------------------------------
+# 3. Extract Assay Data & Format Metadata
+# ------------------------------------------------------------------------------
 
-# Select top 1,000 most variable genes for efficient processing
-gene_vars <- apply(raw_counts, 1, var)
-top_genes <- head(order(gene_vars, decreasing = TRUE), 1000)
-counts_subset <- raw_counts[top_genes, ]
+# We extract the raw unstranded count matrix from our SummarizedExperiment object.
+counts_mat <- assay(tcga_se, "unstranded")
 
-# 5. Quality Control & Normalisation
-stopifnot(sum(is.na(counts_subset)) == 0) # Confirm zero missing values
+# We extract gene annotation metadata (e.g., symbol, gene type).
+gene_info <- as.data.frame(rowData(tcga_se))
 
-# Log2 transformation (adding pseudo-count +1)
-log_counts <- log2(counts_subset + 1)
-
-# Format sample IDs for clean downstream handling
-metadata_clean <- selected_samples %>%
+# We extract clinical/sample metadata and create a clean experimental condition factor, 
+# explicitly setting "Normal" as our baseline level.
+sample_metadata <- as.data.frame(colData(tcga_se)) %>%
   transmute(
-    sample_id = barcode,
-    condition = condition
+    barcode = barcode,
+    sample_type = sample_type,
+    Condition = factor(
+      ifelse(definition == "Primary solid Tumor", "Tumour", "Normal"),
+      levels = c("Normal", "Tumour")
+    )
   )
 
-colnames(log_counts) <- metadata_clean$sample_id
+# ------------------------------------------------------------------------------
+# 4. Low-Count Filtering & Voom Normalisation
+# ------------------------------------------------------------------------------
 
-# 6. Save outputs to disk
-write.csv(metadata_clean, "data/sample_metadata.csv", row.names = FALSE)
-write.csv(log_counts, "data/processed_counts.csv", row.names = TRUE)
+# We construct a DGEList object to structure our counts and experimental groups for edgeR.
+dge <- DGEList(counts = counts_mat, group = sample_metadata$Condition)
 
-message("Preprocessing complete! Real TCGA-BRCA dataset saved to data/")
+# We apply edgeR's filterByExpr heuristic to automatically discard uninformative, 
+# low-count genes based on library sizes and group proportions.
+keep <- filterByExpr(dge)
+dge <- dge[keep, , keep.lib.sizes = FALSE]
+
+# We compute Trimmed Mean of M-values (TMM) scale factors to correct for composition bias.
+dge <- calcNormFactors(dge)
+
+# We transform our count data into log2 counts-per-million (CPM) using voom, 
+# which models the mean-variance relationship to generate observational weights for limma.
+v <- voom(dge, plot = FALSE)
+log_expr <- v$E
+
+# ------------------------------------------------------------------------------
+# 5. Save Processed Artifacts
+# ------------------------------------------------------------------------------
+
+# We save our cleaned metadata, gene information, and normalised log2 expression matrix 
+# to the data directory for downstream modular analyses.
+write.csv(sample_metadata, "data/sample_metadata.csv", row.names = FALSE)
+write.csv(gene_info, "data/gene_info.csv", row.names = TRUE)
+saveRDS(log_expr, "data/normalised_log_expression.rds")
+saveRDS(v, "data/voom_object.rds")
+
+message("Preprocessing complete! Cleaned data saved to data/")
 ```  
 
 ---
 
-# Module 3: Statistical Analysis & PCA
+## Module 3: Statistical Analysis & PCA
 
-```markdown
-## Module 3: Statistical Testing & Dimensionality Reduction
-
-Create `scripts/src03_analysis.R` to calculate differential expression and run Principal Component Analysis (PCA):
+Create `scripts/src03_analysis.R` to run linear modelling via `limma`, perform empirical Bayes variance smoothing, compute adjusted p-values, and conduct Principal Component Analysis (PCA):
 
 ```r
-# Script: src03_analysis.R
-# Purpose: t-tests, FDR correction, and PCA
+# ==============================================================================
+# Script: scripts/src03_analysis.R
+# Purpose: Perform limma differential expression and Principal Component Analysis
+# ==============================================================================
 
-library(tidyverse)
-
-metadata <- read.csv("data/sample_metadata.csv")
-log_counts <- read.csv("data/processed_counts.csv", row.names = 1)
-
-# 1. Differential Expression Testing
-de_results <- apply(log_counts, 1, function(gene_vals) {
-  norm <- gene_vals[metadata$condition == "Normal"]
-  tum  <- gene_vals[metadata$condition == "Tumour"]
-  
-  l2fc <- mean(tum) - mean(norm)
-  pval <- t.test(tum, norm)$p.value
-  
-  return(c(log2FoldChange = l2fc, pvalue = pval))
+# We load our analytical packages quietly.
+suppressPackageStartupMessages({
+  library(limma)
+  library(dplyr)
+  library(tibble)
+  library(matrixStats)
 })
 
-# Reformat and apply Benjamini-Hochberg (FDR) correction
-de_df <- as.data.frame(t(de_results)) %>%
-  rownames_to_column(var = "gene") %>%
+# We read in our preprocessed data artifacts from disk.
+sample_metadata <- read.csv("data/sample_metadata.csv")
+gene_info       <- read.csv("data/gene_info.csv", row.names = 1)
+log_expr        <- readRDS("data/normalised_log_expression.rds")
+v               <- readRDS("data/voom_object.rds")
+
+# Ensure factor ordering is maintained
+sample_metadata$Condition <- factor(sample_metadata$Condition, levels = c("Normal", "Tumour"))
+
+# ------------------------------------------------------------------------------
+# 1. Differential Expression Analysis (limma)
+# ------------------------------------------------------------------------------
+
+# We build a linear model design matrix parameterised by sample condition.
+design <- model.matrix(~ Condition, data = sample_metadata)
+
+# We fit gene-wise linear models using our voom-weighted expression object.
+fit <- lmFit(v, design)
+
+# We apply empirical Bayes moderation to shrink gene-wise variances toward a global trend, 
+# stabilising inference even with modest sample sizes.
+fit <- eBayes(fit)
+
+# We extract differential expression statistics across all tested genes and merge 
+# official gene symbol annotations.
+de_results <- topTable(fit, coef = "ConditionTumour", number = Inf) %>%
+  rownames_to_column("gene_id") %>%
+  left_join(gene_info, by = "gene_id") %>%
   mutate(
-    padj = p.adjust(pvalue, method = "BH"),
-    significant = ifelse(padj < 0.05 & abs(log2FoldChange) > 1, "Significant", "Not Significant")
+    gene_name = ifelse(is.na(gene_name), gene_id, gene_name),
+    Significance = case_when(
+      adj.P.Val < 0.05 & logFC > 1.5  ~ "Up-regulated",
+      adj.P.Val < 0.05 & logFC < -1.5 ~ "Down-regulated",
+      TRUE                            ~ "Not Significant"
+    )
   )
 
-# 2. Principal Component Analysis
-pca_res <- prcomp(t(log_counts), scale. = TRUE)
+# ------------------------------------------------------------------------------
+# 2. Dimensionality Reduction (PCA)
+# ------------------------------------------------------------------------------
 
+# We isolate the top 500 most variable genes across our dataset to capture major variance.
+var_genes <- head(order(rowVars(log_expr), decreasing = TRUE), 500)
+
+# We perform Principal Component Analysis on transposed expression data for these variable genes.
+pca_res <- prcomp(t(log_expr[var_genes, ]), scale. = TRUE)
+
+# We compute the proportion of variance explained by each principal component.
+var_explained <- summary(pca_res)$importance[2, ] * 100
+
+# We structure our PCA coordinates into a data frame merged with sample condition labels.
 pca_df <- as.data.frame(pca_res$x) %>%
-  rownames_to_column(var = "sample_id") %>%
-  left_join(metadata, by = "sample_id")
+  rownames_to_column("barcode") %>%
+  inner_join(sample_metadata, by = "barcode")
 
-# Save tables
-write.csv(de_df, "output/de_results.csv", row.names = FALSE)
+# We attach variance metrics as an attribute so our visualisation script can format axis labels dynamically.
+attr(pca_df, "var_explained") <- var_explained
+
+# ------------------------------------------------------------------------------
+# 3. Save Analytical Outputs
+# ------------------------------------------------------------------------------
+
+# We save our statistical results and PCA tables to our output directory.
+write.csv(de_results, "output/de_results.csv", row.names = FALSE)
 write.csv(pca_df, "output/pca_results.csv", row.names = FALSE)
+saveRDS(var_explained, "output/variance_explained.rds")
 
-message("Analysis complete. Output saved to output/")
-
+message("Statistical modeling and PCA complete! Results exported to output/")
 ```
 
 ---
 
-# Module 4: Data Visualisation
+## Module 4: Data Visualisation
 
-```markdown
-## Module 4: Data Visualisation (`ggplot2`)
-
-Create `scripts/src04_visualisation.R` to construct high-resolution plots:
+Create `scripts/src04_visualisation.R` to construct publication-grade figures using `ggplot2` and `ggrepel`:
 
 ```r
-# Script: src04_visualisation.R
-# Purpose: Generate PCA plot and Volcano plot
+# ==============================================================================
+# Script: scripts/src04_visualisation.R
+# Purpose: Generate publication-ready PCA and Volcano plots
+# ==============================================================================
 
-library(tidyverse)
+# We load our visualisation packages quietly.
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(ggrepel)
+  library(dplyr)
+})
 
-de_df  <- read.csv("output/de_results.csv")
-pca_df <- read.csv("output/pca_results.csv")
+# We define our target cohort clean text label for figure headings.
+cancer_label <- "Breast Cancer (BRCA)"
 
-# 1. PCA Plot
-p_pca <- ggplot(pca_df, aes(x = PC1, y = PC2, color = condition)) +
-  geom_point(size = 3, alpha = 0.8) +
-  scale_color_manual(values = c("Normal" = "#1f77b4", "Tumour" = "#d62728")) +
-  theme_bw() +
-  labs(title = "PCA: Normal vs Tumour", x = "PC1", y = "PC2", color = "Group")
+# We read in our processed analytical tables and metrics.
+de_results    <- read.csv("output/de_results.csv")
+pca_df        <- read.csv("output/pca_results.csv")
+var_explained <- readRDS("output/variance_explained.rds")
 
+# Ensure factor ordering is consistent for plot legends
+pca_df$Condition <- factor(pca_df$Condition, levels = c("Normal", "Tumour"))
+
+# ------------------------------------------------------------------------------
+# 1. Principal Component Analysis (PCA) Plot
+# ------------------------------------------------------------------------------
+
+# We construct our PCA scatter plot to inspect global sample clustering.
+p_pca <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Condition)) +
+  geom_point(size = 3.5, alpha = 0.85) +
+  scale_color_manual(values = c("Normal" = "#2b5c8f", "Tumour" = "#d95f02")) +
+  theme_minimal(base_size = 12) +
+  labs(
+    title = sprintf("PCA: %s (Tumour vs Normal)", cancer_label),
+    x = sprintf("PC1 (%.1f%% Variance)", var_explained[1]),
+    y = sprintf("PC2 (%.1f%% Variance)", var_explained[2]),
+    color = "Group"
+  ) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "top"
+  )
+
+# We display the PCA plot in our session and save a high-resolution copy to disk.
+print(p_pca)
 ggsave("output/pca_plot.png", p_pca, width = 6, height = 5, dpi = 300)
 
-# 2. Volcano Plot
-p_volcano <- ggplot(de_df, aes(x = log2FoldChange, y = -log10(pvalue), color = significant)) +
-  geom_point(alpha = 0.7) +
-  scale_color_manual(values = c("Not Significant" = "grey", "Significant" = "#d62728")) +
-  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
-  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
-  theme_bw() +
-  labs(title = "Volcano Plot", x = "Log2 Fold Change", y = "-Log10 p-value")
+# ------------------------------------------------------------------------------
+# 2. Volcano Plot Visualisation
+# ------------------------------------------------------------------------------
 
-ggsave("output/volcano_plot.png", p_volcano, width = 6, height = 5, dpi = 300)
+# We filter and select the top 10 most statistically significant genes for label positioning.
+top_genes <- de_results %>%
+  filter(Significance != "Not Significant") %>%
+  arrange(adj.P.Val) %>%
+  head(10)
 
-message("Visualisations created successfully.")
+# We construct our volcano plot mapping log2 fold-changes against -log10 p-values.
+p_volcano <- ggplot(de_results, aes(x = logFC, y = -log10(P.Value), color = Significance)) +
+  geom_point(alpha = 0.5, size = 1.8) +
+  scale_color_manual(values = c(
+    "Down-regulated" = "#3182bd", 
+    "Not Significant" = "#969696", 
+    "Up-regulated" = "#de2d26"
+  )) +
+  geom_vline(xintercept = c(-1.5, 1.5), linetype = "dashed", alpha = 0.5) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", alpha = 0.5) +
+  geom_text_repel(
+    data = top_genes, 
+    aes(label = gene_name), 
+    size = 3.5, 
+    max.overlaps = 15, 
+    show.legend = FALSE
+  ) +
+  theme_classic(base_size = 15) +
+  labs(
+    title = sprintf("Differential Expression: %s", cancer_label),
+    x = expression("Log"[2] ~ "Fold Change"),
+    y = expression("-Log"[10] ~ "p-value")
+  ) +
+  guides(colour = guide_legend(override.aes = list(size = 6))) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "top"
+  )
 
+# We display the volcano plot in our session and save a high-resolution copy to disk.
+print(p_volcano)
+ggsave("output/volcano_plot.png", p_volcano, width = 7, height = 6, dpi = 300)
+
+message("Visualisations complete! PNG figures saved to output/")
 ```
 
 ---
 
-# README Final Deliverable Checklist
-
-```markdown
 ## Final Checklist
 
 To complete this mini-project, ensure your public GitHub repository contains:
 
 - [ ] Clear folder structure (`data/`, `scripts/`, `output/`).
 - [ ] Four well-commented R scripts (`src01_setup.R` through `src04_visualisation.R`).
-- [ ] Saved CSV outputs in `output/`.
+- [ ] Saved CSV outputs and data objects in `output/` and `data/`.
 - [ ] Rendered `.png` figures linked directly inside your main `README.md`.
