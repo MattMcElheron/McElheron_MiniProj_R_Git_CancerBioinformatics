@@ -57,8 +57,13 @@ dir.create("output")
 
 Now, when someone else opens our script, they will know how our data/input/output should be structured.
 
-# Script: 01_setup.R
-# Purpose: Check and install required packages
+# Task 1: Write a Script  
+
+Create a new file in `scripts/src01_setup.R`. This file will install and load any libraries we need.
+
+
+### Script: 01_setup.R
+## Purpose: Check and install required packages
 
 When we start using RStudio, we will need to install packages, using `install.packages("package_name")`. We then switch on the package, using `library(package_name)`. Note the use of quotations for install but not for library. The next time we open up RStudio, we do not need to reinstall the package, but we do need to switch it on, with the `library()` function.  
 
@@ -70,11 +75,53 @@ required_packages <- c("dplyr", "ggplot2", "tidyverse", "ggrepel")
 new_packages <- required_packages[!(required_packages %in% installed_packages)]
 if(length(new_packages)) install.packages(new_packages)
 
+message("Packages installed. Environment setup complete.")
 
-```
-
-
-
+```  
 
 
+### Git Checkpoint:  
+Stage your files in RStudio's Git tab, write a commit message ("Setup directory structure and setup script"), and push to GitHub.  
 
+
+---
+
+# Module 2: Data Preprocessing & QC
+
+```markdown
+## Module 2: Preprocessing & Quality Control
+
+Create `scripts/02_preprocessing.R` to simulate and clean a transcriptomic expression matrix:
+
+```r
+# Script: 02_preprocessing.R
+# Purpose: Data simulation, quality control, and log2 transformation
+
+library(tidyverse)
+set.seed(42)
+
+# 1. Simulate metadata (20 Normal vs 20 Tumour samples)
+metadata <- data.frame(
+  sample_id = paste0("Sample_", 1:40),
+  condition = factor(rep(c("Normal", "Tumour"), each = 20), levels = c("Normal", "Tumour"))
+)
+
+# 2. Simulate count matrix (500 genes x 40 samples)
+counts <- matrix(rpois(500 * 40, lambda = 50), nrow = 500, ncol = 40)
+rownames(counts) <- paste0("Gene_", 1:500)
+colnames(counts) <- metadata$sample_id
+
+# Introduce artificial upregulation in Tumour for Genes 1-50
+counts[1:50, metadata$condition == "Tumour"] <- counts[1:50, metadata$condition == "Tumour"] * 2.5
+
+# 3. Quality Control Checks
+stopifnot(sum(is.na(counts)) == 0) # Check no missing values
+
+# Log2 transformation (adding pseudo-count +1)
+log_counts <- log2(counts + 1)
+
+# 4. Save outputs
+write.csv(metadata, "data/sample_metadata.csv", row.names = FALSE)
+write.csv(log_counts, "data/processed_counts.csv", row.names = TRUE)
+
+message("Preprocessing complete. Output saved to data/")
