@@ -59,10 +59,10 @@ Now, when someone else opens our script, they will know how our data/input/outpu
 
 # Task 1: Write a Script  
 
-Create a new file in `scripts/src01_setup.R`. This file will install and load any libraries we need.
+Create a new file in `scripts/srcsrc01_setup.R`. This file will install and load any libraries we need.
 
 
-### Script: 01_setup.R
+### Script: src01_setup.R
 ## Purpose: Check and install required packages
 
 When we start using RStudio, we will need to install packages, using `install.packages("package_name")`. We then switch on the package, using `library(package_name)`. Note the use of quotations for install but not for library. The next time we open up RStudio, we do not need to reinstall the package, but we do need to switch it on, with the `library()` function.  
@@ -86,47 +86,90 @@ Stage your files in RStudio's Git tab, write a commit message ("Setup directory 
 
 ---
 
-# Module 2: Data Preprocessing & QC
-
-```markdown
 ## Module 2: Preprocessing & Quality Control
 
-Create `scripts/02_preprocessing.R` to simulate and clean a transcriptomic expression matrix:
+Create `scripts/src02_preprocessing.R` to download, filter, and normalize real breast cancer expression data from TCGA:
 
 ```r
-# Script: 02_preprocessing.R
-# Purpose: Data simulation, quality control, and log2 transformation
+# Script: src02_preprocessing.R
+# Purpose: Fetch real TCGA-BRCA transcriptomic data, extract metadata, and log2-transform counts
 
+# 1. Load required libraries
+if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+if (!requireNamespace("TCGAbiolinks", quietly = TRUE)) BiocManager::install("TCGAbiolinks")
+if (!requireNamespace("SummarizedExperiment", quietly = TRUE)) BiocManager::install("SummarizedExperiment")
+
+library(TCGAbiolinks)
+library(SummarizedExperiment)
 library(tidyverse)
-set.seed(42)
 
-# 1. Simulate metadata (20 Normal vs 20 Tumour samples)
-metadata <- data.frame(
-  sample_id = paste0("Sample_", 1:40),
-  condition = factor(rep(c("Normal", "Tumour"), each = 20), levels = c("Normal", "Tumour"))
+message("Downloading TCGA-BRCA data from GDC portal...")
+
+# 2. Query GDC for TCGA-BRCA RNA-seq gene expression (STAR - Counts)
+query <- GDCquery(
+  project = "TCGA-BRCA",
+  data.category = "Transcriptome Profiling",
+  data.type = "Gene Expression Quantification",
+  workflow.type = "STAR - Counts"
 )
 
-# 2. Simulate count matrix (500 genes x 40 samples)
-counts <- matrix(rpois(500 * 40, lambda = 50), nrow = 500, ncol = 40)
-rownames(counts) <- paste0("Gene_", 1:500)
-colnames(counts) <- metadata$sample_id
+# Download a subset of samples (20 Primary Tumour, 20 Solid Tissue Normal) to keep runtime fast
+samples_normal <- GDCquery_clinic(project = "TCGA-BRCA", type = "clinical")
+# Download data files locally
+GDCdownload(query, files.per.chunk = 10)
+brca_se <- GDCprepare(query)
 
-# Introduce artificial upregulation in Tumour for Genes 1-50
-counts[1:50, metadata$condition == "Tumour"] <- counts[1:50, metadata$condition == "Tumour"] * 2.5
+# 3. Extract sample metadata & define conditions
+coldata <- as.data.frame(colData(brca_se)) %>%
+  select(barcode, sample_type) %>%
+  filter(sample_type %in% c("Primary Tumor", "Solid Tissue Normal")) %>%
+  mutate(condition = factor(ifelse(sample_type == "Primary Tumor", "Tumour", "Normal"), 
+                            levels = c("Normal", "Tumour")))
 
-# 3. Quality Control Checks
-stopifnot(sum(is.na(counts)) == 0) # Check no missing values
+# Select a balanced subset: 20 Normal and 20 Tumour samples
+set.seed(42)
+selected_samples <- coldata %>%
+  group_by(condition) %>%
+  slice_sample(n = 20) %>%
+  ungroup()
+
+# 4. Filter count matrix to selected samples & top variable genes
+raw_counts <- assay(brca_se, "unstranded")[, selected_samples$barcode]
+
+# Clean gene symbols from row data
+gene_info <- as.data.frame(rowData(brca_se))
+rownames(raw_counts) <- gene_info$gene_name
+
+# Filter out unmapped/empty gene symbols and low-count genes
+raw_counts <- raw_counts[!is.na(rownames(raw_counts)) & rownames(raw_counts) != "", ]
+raw_counts <- raw_counts[rowSums(raw_counts) > 50, ]
+
+# Select top 1,000 most variable genes for efficient processing
+gene_vars <- apply(raw_counts, 1, var)
+top_genes <- head(order(gene_vars, decreasing = TRUE), 1000)
+counts_subset <- raw_counts[top_genes, ]
+
+# 5. Quality Control & Normalisation
+stopifnot(sum(is.na(counts_subset)) == 0) # Confirm zero missing values
 
 # Log2 transformation (adding pseudo-count +1)
-log_counts <- log2(counts + 1)
+log_counts <- log2(counts_subset + 1)
 
-# 4. Save outputs
-write.csv(metadata, "data/sample_metadata.csv", row.names = FALSE)
+# Format sample IDs for clean downstream handling
+metadata_clean <- selected_samples %>%
+  transmute(
+    sample_id = barcode,
+    condition = condition
+  )
+
+colnames(log_counts) <- metadata_clean$sample_id
+
+# 6. Save outputs to disk
+write.csv(metadata_clean, "data/sample_metadata.csv", row.names = FALSE)
 write.csv(log_counts, "data/processed_counts.csv", row.names = TRUE)
 
-message("Preprocessing complete. Output saved to data/")
-```
-
+message("Preprocessing complete! Real TCGA-BRCA dataset saved to data/")
+```  
 
 ---
 
@@ -135,10 +178,10 @@ message("Preprocessing complete. Output saved to data/")
 ```markdown
 ## Module 3: Statistical Testing & Dimensionality Reduction
 
-Create `scripts/03_analysis.R` to calculate differential expression and run Principal Component Analysis (PCA):
+Create `scripts/src03_analysis.R` to calculate differential expression and run Principal Component Analysis (PCA):
 
 ```r
-# Script: 03_analysis.R
+# Script: src03_analysis.R
 # Purpose: t-tests, FDR correction, and PCA
 
 library(tidyverse)
@@ -187,10 +230,10 @@ message("Analysis complete. Output saved to output/")
 ```markdown
 ## Module 4: Data Visualisation (`ggplot2`)
 
-Create `scripts/04_visualisation.R` to construct high-resolution plots:
+Create `scripts/src04_visualisation.R` to construct high-resolution plots:
 
 ```r
-# Script: 04_visualisation.R
+# Script: src04_visualisation.R
 # Purpose: Generate PCA plot and Volcano plot
 
 library(tidyverse)
@@ -227,11 +270,11 @@ message("Visualisations created successfully.")
 # README Final Deliverable Checklist
 
 ```markdown
-## Final Student Checklist
+## Final Checklist
 
 To complete this mini-project, ensure your public GitHub repository contains:
 
 - [ ] Clear folder structure (`data/`, `scripts/`, `output/`).
-- [ ] Four well-commented R scripts (`01_setup.R` through `04_visualisation.R`).
+- [ ] Four well-commented R scripts (`src01_setup.R` through `src04_visualisation.R`).
 - [ ] Saved CSV outputs in `output/`.
 - [ ] Rendered `.png` figures linked directly inside your main `README.md`.
