@@ -2,7 +2,7 @@
 
 Now that we have successfully built a complete bioinformatic pipeline from raw data acquisition to publication-ready visualisations, it is time to test your new computational skills. 
 
-Up until this point, we have compared **Tumour vs. Normal** tissue within a single cancer type (Breast Cancer, TCGA-BRCA). For your independent assignment, your objective is to investigate the transcriptomic differences between **two different types of cancer**. You will query a new TCGA cohort, isolate the tumour samples from both cohorts, and perform a differential expression analysis comparing **BRCA Tumours vs. [Your Chosen Cancer] Tumours**. 
+Up until this point, we have compared **Tumour vs. Normal** tissue within a single cancer type (Breast Cancer, TCGA-BRCA). For your independent assignment, your objective is to investigate the transcriptomic differences between **two different types of cancer**. You will query a new TCGA cohort, isolate the tumour samples from both cohorts, and perform a differential expression analysis comparing **BRCA Tumours vs. [Your Chosen Cancer] Tumours**. More specifically, you will then investigate if there are differences in hypoxia gene signalling between the cancer types. 
 
 This is a very common exploratory analysis in cancer biology, often used to identify tissue-specific oncogenic drivers or potential pan-cancer therapeutic targets.
 
@@ -13,6 +13,7 @@ This is a very common exploratory analysis in cancer biology, often used to iden
 3. **Data Wrangling:** Filter both your BRCA dataset and your new dataset to retain **only** the "Primary Tumor" samples (drop the "Solid Tissue Normal" samples).
 4. **Merge Datasets:** Combine the two tumour count matrices into a single matrix, and combine their metadata into a single table.
 5. **Analysis & Visualisation:** Run the combined dataset through your `edgeR`/`limma` pipeline. Generate a PCA plot to see if the two cancer types cluster independently, and a Volcano plot highlighting the top differentially expressed genes between the two malignancies.
+6. **Targeted Gene Analysis:** Pull out the transcription levels of genes from the hypoxia hallmark gene set, then compare levels between your groups.
 
 ---
 
@@ -47,5 +48,8 @@ Combining two TCGA cohorts can result in very large objects that consume a lot o
 * **Hint 4: A Note on Batch Effects**  
 
 In real-world bioinformatics, comparing datasets generated from different distinct projects can introduce technical "batch effects" (e.g., different sequencing machines, different technicians, different extraction kits). While we are skipping formal batch correction for this introductory exercise, it is an important biological caveat.    
+
+
+---
 
 
