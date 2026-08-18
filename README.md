@@ -104,7 +104,11 @@ Stage your files in RStudio's Git tab, write a commit message ("Setup directory 
 
 ## Module 2: Data Acquisition & Preprocessing
 
-Create `scripts/src02_preprocessing.R` to download real cancer RNA-Seq expression data from TCGA via `TCGAbiolinks`, extract relevant metadata, apply low-count filtering, and normalise expression values using TMM and `voom`:
+In this module, we bridge the gap between raw sequencing outputs and analytical readiness. Firstly, we will fetch the real clinical cancer patient data from The Cancer Genome Atlas (TCGA). The format it lands in will be somewhat preprocessed, which often times is what you as a wet lab researcher might begin with, or will be made available online by other researchers. We can discuss raw data reads at another stage.  
+
+When dealing with transcriptomic data, such as RNA sequencing (RNA-Seq), you will often begin with a large matrix of raw read counts. This is the output of processing raw FASTQ files (which requires QC steps and is usually done outside of R), so for now we will start with a counts matrix. These counts simply represent the absolute number of sequencing reads that successfully map to a given gene in the genome. However, these raw numbers cannot be compared directly across different samples. Variations in sequencing depth (the total number of reads generated for a specific sample) and overall RNA composition dictate that the data must be mathematically adjusted, a process known as normalisation. Furthermore, thousands of genes are either not expressed or expressed at exceptionally low levels in our tissue of interest. Retaining these lowly expressed genes introduces significant statistical noise and ultimately weakens the power of our subsequent analyses.  
+
+In the `src02_preprocessing.R` script below, we will programmatically query and download a real transcriptomic dataset from The Cancer Genome Atlas (TCGA). Once the raw count matrix is assembled, we will filter out uninformative low-count genes and apply Trimmed Mean of M-values (TMM) normalisation to correct for technical sequencing biases. Finally, we will apply a `voom` transformation. This crucial step converts our raw counts into log2 values while assigning mathematical weights to each observation based on its variance, completely preparing the dataset for robust linear modelling and differential expression testing in Module 3.  
 
 ```r
 # ==============================================================================
@@ -230,7 +234,15 @@ message("Preprocessing complete! Cleaned data saved to data/")
 
 ## Module 3: Statistical Analysis & PCA
 
-Create `scripts/src03_analysis.R` to run linear modelling via `limma`, perform empirical Bayes variance smoothing, compute adjusted p-values, and conduct Principal Component Analysis (PCA):
+In this module, we transition from data preparation to answering fundamental biological questions. Our primary objective is to identify which specific genes are "turned up" (up-regulated) or "turned down" (down-regulated) in tumour tissues compared to healthy tissues. In bioinformatics, this is known as Differential Expression analysis. This is how we ask questions like "what genes are expressed differently between Group A and Group B?", or, "what genes are more expressed as Variable A increases?". Cancer effects, gene mutation effects, age effects, sex effects, treatment effects, and many many more.  
+
+To achieve this, we rely on a highly regarded statistical framework in R called `limma`. Because biological data is inherently noisy and we often have a limited number of clinical samples, `limma` employs an advanced technique called "empirical Bayes". Put simply, the software borrows statistical confidence from the thousands of genes present in the entire dataset to make much more accurate and robust decisions about each individual gene's behaviour.  
+
+Furthermore, when we ask the question "is this gene significantly different?" across 20,000 genes simultaneously, basic probability breaks down. By pure chance alone, standard p-values would yield hundreds of false positives. To combat this "multiple testing" problem, we calculate adjusted p-values using the False Discovery Rate (FDR). This places a strict mathematical penalty on our results, ensuring our final list of genes represents genuine biological discoveries rather than statistical flukes.  
+
+Finally, we will perform Principal Component Analysis (PCA). Our brains cannot easily visualise 20,000 variables (genes) at once. PCA is a dimensionality reduction technique that mathematically compresses all that complex, multi-dimensional gene expression data down into just two or three main axes of variation. By plotting these "Principal Components", we can visually inspect whether our tumour samples naturally cluster away from our normal samples. This serves as a vital quality control step, confirming that the underlying disease biology is driving the main differences in our data. It is also how we inspect at scale other effects across many dimensions simultaneously.  
+
+Create `scripts/src03_analysis.R` to run this analytical workflow:  
 
 ```r
 # ==============================================================================
@@ -320,7 +332,15 @@ message("Statistical modeling and PCA complete! Results exported to output/")
 
 ## Module 4: Data Visualisation
 
-Create `scripts/src04_visualisation.R` to construct publication-grade figures using `ggplot2` and `ggrepel`:
+In this final module, we focus on translating our complex statistical outputs into intuitive, publication-ready visualisations. Staring at a spreadsheet containing 20,000 p-values is rarely illuminating; to effectively communicate our findings, we must create clear visual narratives. 
+
+To achieve this, we will rely heavily on `ggplot2`, the gold-standard graphics package in R. `ggplot2` operates on a philosophy of "layers" - we start with a blank canvas, map our data to the axes, add geometric shapes (like points), and finally customise the themes and colours. We will generate two fundamental bioinformatic plots:
+
+**1. The PCA Scatter Plot:** This gives us a bird's-eye view of our entire dataset. Each point on this plot represents an entire patient sample. If our biological groups are truly distinct, we should see the Tumour dots cluster tightly together and separate cleanly from the Normal dots. It is the ultimate sanity check, confirming that the main source of variation in our experiment is actually the disease state, rather than a technical batch effect.
+
+**2. The Volcano Plot:** This is the classic method for visualising differential expression. The horizontal x-axis displays the *magnitude* of the biological change (Log2 Fold Change—how much expression increased or decreased), while the vertical y-axis displays the *statistical significance* (adjusted p-value). The resulting shape resembles an erupting volcano. The most biologically interesting target genes—those that are both highly significant and drastically altered—are pushed to the top-left and top-right corners. We will also use an excellent package called `ggrepel` to automatically arrange the names of these top genes so their text labels do not overlap.
+
+Create `scripts/src04_visualisation.R` to construct these high-resolution figures:
 
 ```r
 # ==============================================================================
