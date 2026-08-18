@@ -125,3 +125,4 @@ write.csv(metadata, "data/sample_metadata.csv", row.names = FALSE)
 write.csv(log_counts, "data/processed_counts.csv", row.names = TRUE)
 
 message("Preprocessing complete. Output saved to data/")
+```
