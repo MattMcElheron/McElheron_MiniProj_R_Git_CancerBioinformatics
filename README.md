@@ -126,3 +126,112 @@ write.csv(log_counts, "data/processed_counts.csv", row.names = TRUE)
 
 message("Preprocessing complete. Output saved to data/")
 ```
+
+
+---
+
+# Module 3: Statistical Analysis & PCA
+
+```markdown
+## Module 3: Statistical Testing & Dimensionality Reduction
+
+Create `scripts/03_analysis.R` to calculate differential expression and run Principal Component Analysis (PCA):
+
+```r
+# Script: 03_analysis.R
+# Purpose: t-tests, FDR correction, and PCA
+
+library(tidyverse)
+
+metadata <- read.csv("data/sample_metadata.csv")
+log_counts <- read.csv("data/processed_counts.csv", row.names = 1)
+
+# 1. Differential Expression Testing
+de_results <- apply(log_counts, 1, function(gene_vals) {
+  norm <- gene_vals[metadata$condition == "Normal"]
+  tum  <- gene_vals[metadata$condition == "Tumour"]
+  
+  l2fc <- mean(tum) - mean(norm)
+  pval <- t.test(tum, norm)$p.value
+  
+  return(c(log2FoldChange = l2fc, pvalue = pval))
+})
+
+# Reformat and apply Benjamini-Hochberg (FDR) correction
+de_df <- as.data.frame(t(de_results)) %>%
+  rownames_to_column(var = "gene") %>%
+  mutate(
+    padj = p.adjust(pvalue, method = "BH"),
+    significant = ifelse(padj < 0.05 & abs(log2FoldChange) > 1, "Significant", "Not Significant")
+  )
+
+# 2. Principal Component Analysis
+pca_res <- prcomp(t(log_counts), scale. = TRUE)
+
+pca_df <- as.data.frame(pca_res$x) %>%
+  rownames_to_column(var = "sample_id") %>%
+  left_join(metadata, by = "sample_id")
+
+# Save tables
+write.csv(de_df, "output/de_results.csv", row.names = FALSE)
+write.csv(pca_df, "output/pca_results.csv", row.names = FALSE)
+
+message("Analysis complete. Output saved to output/")
+
+```
+
+---
+
+# Module 4: Data Visualisation
+
+```markdown
+## Module 4: Data Visualisation (`ggplot2`)
+
+Create `scripts/04_visualisation.R` to construct high-resolution plots:
+
+```r
+# Script: 04_visualisation.R
+# Purpose: Generate PCA plot and Volcano plot
+
+library(tidyverse)
+
+de_df  <- read.csv("output/de_results.csv")
+pca_df <- read.csv("output/pca_results.csv")
+
+# 1. PCA Plot
+p_pca <- ggplot(pca_df, aes(x = PC1, y = PC2, color = condition)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_color_manual(values = c("Normal" = "#1f77b4", "Tumour" = "#d62728")) +
+  theme_bw() +
+  labs(title = "PCA: Normal vs Tumour", x = "PC1", y = "PC2", color = "Group")
+
+ggsave("output/pca_plot.png", p_pca, width = 6, height = 5, dpi = 300)
+
+# 2. Volcano Plot
+p_volcano <- ggplot(de_df, aes(x = log2FoldChange, y = -log10(pvalue), color = significant)) +
+  geom_point(alpha = 0.7) +
+  scale_color_manual(values = c("Not Significant" = "grey", "Significant" = "#d62728")) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  theme_bw() +
+  labs(title = "Volcano Plot", x = "Log2 Fold Change", y = "-Log10 p-value")
+
+ggsave("output/volcano_plot.png", p_volcano, width = 6, height = 5, dpi = 300)
+
+message("Visualisations created successfully.")
+
+```
+
+---
+
+# README Final Deliverable Checklist
+
+```markdown
+## Final Student Checklist
+
+To complete this mini-project, ensure your public GitHub repository contains:
+
+- [ ] Clear folder structure (`data/`, `scripts/`, `output/`).
+- [ ] Four well-commented R scripts (`01_setup.R` through `04_visualisation.R`).
+- [ ] Saved CSV outputs in `output/`.
+- [ ] Rendered `.png` figures linked directly inside your main `README.md`.
